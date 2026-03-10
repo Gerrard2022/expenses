@@ -7,8 +7,8 @@ import { SideNav } from "@/components/SideNav";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ExpensWise — Smart Expense Tracker",
-  description: "Track your expenses, savings, and debts with ease and style.",
+  title: "ExpensWise",
+  description: "Track your expenses, savings, and debts.",
 };
 
 export default function RootLayout({
@@ -18,12 +18,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} antialiased selection:bg-green-500/20 selection:text-green-500`}>
+      <body className={`${inter.className} antialiased`}>
         <Provider>
           <div className="flex bg-background min-h-screen">
             <SideNav />
-            <main className="flex-1 ml-64 p-8 lg:p-12 overflow-y-auto">
-              <div className="max-w-6xl mx-auto space-y-12">
+            <main className="flex-1 ml-60 p-8 overflow-y-auto">
+              <div className="max-w-5xl mx-auto">
                 {children}
               </div>
             </main>

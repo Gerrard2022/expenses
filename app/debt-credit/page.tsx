@@ -6,30 +6,47 @@ import {
     TrendingUp,
     TrendingDown,
     Trash2,
-    History,
-    AlertCircle,
-    Clock,
+    Calendar,
     Plus,
     User,
-    MoreVertical,
-    CheckCircle2
+    CheckCircle2,
+    AlertCircle
 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 export default function DebtCreditPage() {
     const [activeTab, setActiveTab] = useState<"debt" | "credit">("debt");
     const { data: list, refetch } = trpc.debtCredit.getAll.useQuery({ type: activeTab });
     const { data: user } = trpc.user.me.useQuery();
+    const [open, setOpen] = useState(false);
+    const [payOpen, setPayOpen] = useState<string | null>(null);
+    const [amount, setAmount] = useState<string>("");
 
     const createDC = trpc.debtCredit.create.useMutation({
-        onSuccess: () => refetch(),
+        onSuccess: () => { refetch(); setOpen(false); },
     });
 
     const recordPayment = trpc.debtCredit.recordPayment.useMutation({
-        onSuccess: () => refetch(),
+        onSuccess: () => { refetch(); setPayOpen(null); setAmount(""); },
     });
 
-    const [showAdd, setShowAdd] = useState(false);
+    const deleteDC = trpc.debtCredit.delete.useMutation({
+        onSuccess: () => refetch(),
+    });
 
     const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -41,213 +58,205 @@ export default function DebtCreditPage() {
             dueDate: formData.get("dueDate") as string || undefined,
             notes: formData.get("notes") as string || undefined,
         });
-        setShowAdd(false);
     };
 
-    const [paymentAmount, setPaymentAmount] = useState<{ [key: string]: number }>({});
+    const handleRecord = async (id: string) => {
+        if (!amount || isNaN(Number(amount))) return;
+        await recordPayment.mutateAsync({ id, amount: Number(amount) });
+    };
 
     return (
-        <div className="space-y-12 animate-in fade-in slide-in-from-right-12 duration-1000">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-6 py-6">
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground flex items-center gap-4">
-                        Financial Relationships
-                        <div className="flex items-center gap-2 p-1 bg-muted rounded-2xl">
-                            <button
-                                onClick={() => setActiveTab("debt")}
-                                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "debt" ? "bg-red-500 text-white shadow-xl shadow-red-500/20" : "text-muted-foreground hover:text-red-500"
-                                    }`}
-                            >
-                                Debts
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("credit")}
-                                className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "credit" ? "bg-green-500 text-white shadow-xl shadow-green-500/20" : "text-muted-foreground hover:text-green-500"
-                                    }`}
-                            >
-                                Credits
-                            </button>
-                        </div>
-                    </h1>
-                    <p className="text-muted-foreground mt-4 italic font-medium">
-                        {activeTab === "debt" ? "Keep track of money you owe to others." : "Manage loans you've given to friends or family."}
-                    </p>
+                    <h1 className="text-xl font-semibold">Debt & Credit</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">Manage money you owe or are owed.</p>
                 </div>
-                <button
-                    onClick={() => setShowAdd(!showAdd)}
-                    className={`flex items-center gap-2 px-8 py-4 rounded-[1.5rem] font-bold transition-all shadow-xl active:scale-95 group ${activeTab === "debt" ? "bg-red-500 text-white shadow-red-500/20 hover:bg-red-600" : "bg-green-500 text-white shadow-green-500/20 hover:bg-green-600"
-                        }`}
-                >
-                    {showAdd ? <Clock className="w-5 h-5 rotate-90" /> : <Plus className="w-5 h-5" />}
-                    {showAdd ? "Later" : `Add New ${activeTab}`}
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 p-1 bg-muted rounded-md shrink-0">
+                        <button
+                            onClick={() => setActiveTab("debt")}
+                            className={cn(
+                                "px-3 py-1 rounded text-xs font-medium transition-colors",
+                                activeTab === "debt"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            Debt
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("credit")}
+                            className={cn(
+                                "px-3 py-1 rounded text-xs font-medium transition-colors",
+                                activeTab === "credit"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            Credit
+                        </button>
+                    </div>
+                    <Dialog open={open} onOpenChange={setOpen}>
+                        <DialogTrigger
+                            render={
+                                <Button>
+                                    <Plus className="w-4 h-4 mr-1.5" />
+                                    New record
+                                </Button>
+                            }
+                        />
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>New {activeTab} record</DialogTitle>
+                                <DialogDescription className="text-xs">
+                                    {activeTab === "debt" ? "Money you owe to someone." : "Money someone owes you."}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleAdd} className="space-y-4 pt-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="dc-person">Person</Label>
+                                    <Input id="dc-person" name="personName" placeholder="e.g. John Doe" required />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="dc-amount">Amount ({user?.currency || "USD"})</Label>
+                                        <Input id="dc-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="dc-date">Due Date</Label>
+                                        <Input id="dc-date" name="dueDate" type="date" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="dc-notes">Notes</Label>
+                                    <Input id="dc-notes" name="notes" placeholder="Optional context" />
+                                </div>
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+                                    <Button type="submit" size="sm" disabled={createDC.isPending}>
+                                        {createDC.isPending ? "Saving..." : "Save Record"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
-            {/* Add Form */}
-            {showAdd && (
-                <div className="bg-card border-l-8 border-l-red-500 dark:border-l-green-500 shadow-2xl rounded-[3rem] p-12 transition-all group overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:scale-110 transition-transform">
-                        <HandCoins className="w-48 h-48" />
-                    </div>
-
-                    <h2 className="text-3xl font-black mb-10">Sync Record</h2>
-                    <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 relative">
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Person Name</label>
-                            <div className="relative">
-                                <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
-                                <input name="personName" placeholder="John Doe..." required className="w-full bg-background border border-border pl-12 pr-6 py-4 rounded-2xl shadow-sm" />
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Total Principal Amount</label>
-                            <input name="amount" type="number" step="0.01" placeholder="0.00" required className="w-full bg-background border border-border p-4 rounded-2xl shadow-sm" />
-                        </div>
-
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Due Date</label>
-                            <input name="dueDate" type="date" className="w-full bg-background border border-border p-4 rounded-2xl shadow-sm" />
-                        </div>
-
-                        <div className="md:col-span-2 lg:col-span-3 space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Context / Notes</label>
-                            <input name="notes" placeholder="Why the exchange happened?" className="w-full bg-background border border-border p-4 rounded-2xl shadow-sm" />
-                        </div>
-
-                        <div className="md:col-span-2 lg:col-span-3 flex justify-end pt-4">
-                            <button
-                                type="submit"
-                                className={`px-12 py-5 rounded-3xl font-black text-lg transition-all shadow-xl hover:scale-105 ${activeTab === "debt" ? "bg-red-500 text-white shadow-red-500/30" : "bg-green-500 text-white shadow-green-500/30"
-                                    }`}
-                            >
-                                Confirm Record
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* List */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {list?.map((dc) => {
                     const totalAmount = Number(dc.amount);
                     const paidAmount = Number(dc.paidAmount);
                     const remaining = totalAmount - paidAmount;
                     const progress = (paidAmount / totalAmount) * 100;
                     const isOverdue = dc.dueDate && new Date(dc.dueDate) < new Date() && dc.status !== "paid";
+                    const isPaid = dc.status === "paid";
 
                     return (
-                        <div key={dc.id} className="bg-card border border-border rounded-[3rem] p-10 hover:border-green-500/20 transition-all shadow-sm relative overflow-hidden group/item">
-                            <div className="absolute top-0 right-0 p-10 opacity-5">
-                                {activeTab === "debt" ? <TrendingDown className="w-24 h-24 text-red-500" /> : <TrendingUp className="w-24 h-24 text-green-500" />}
-                            </div>
-
-                            <div className="flex items-center justify-between relative">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black shadow-inner ${activeTab === "debt" ? "bg-red-500/10 text-red-500 italic" : "bg-green-500/10 text-green-500"
-                                        }`}>
-                                        {dc.personName.charAt(0).toUpperCase()}
+                        <Card key={dc.id} className="group relative">
+                            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                                <div className="flex items-center gap-2.5">
+                                    <div className={cn(
+                                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                                        activeTab === "debt" ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                    )}>
+                                        <User className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-black text-foreground">{dc.personName}</h3>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${dc.status === "paid" ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
-                                                }`}>
-                                                {dc.status?.replace("_", " ")}
-                                            </span>
-                                            {isOverdue && (
-                                                <span className="text-[10px] font-black uppercase bg-red-500 text-white px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
-                                                    <AlertCircle className="w-3 h-3" />
-                                                    Overdue
-                                                </span>
-                                            )}
-                                        </div>
+                                        <CardTitle className="text-sm font-medium">{dc.personName}</CardTitle>
+                                        {dc.status !== "pending" && (
+                                            <p className="text-[10px] text-muted-foreground capitalize">{dc.status.replace("_", " ")}</p>
+                                        )}
                                     </div>
                                 </div>
-                                <button className="p-3 hover:bg-muted rounded-xl transition-all">
-                                    <MoreVertical className="w-5 h-5 text-muted-foreground opacity-30" />
-                                </button>
-                            </div>
-
-                            <div className="mt-10 space-y-6 relative">
-                                <div className="flex items-center justify-between text-sm font-bold opacity-60">
-                                    <span>Settlement Ratio</span>
-                                    <span>{progress.toFixed(0)}%</span>
+                                <div className="flex items-center gap-1.5">
+                                    {isOverdue && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
+                                    <button
+                                        onClick={() => deleteDC.mutate({ id: dc.id })}
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
-                                <div className="h-3 w-full bg-muted rounded-full overflow-hidden shadow-inner">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-1000 ${activeTab === "debt" ? "bg-red-500" : "bg-green-500"
-                                            }`}
-                                        style={{ width: `${progress}%` }}
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between">
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-end justify-between">
                                     <div>
-                                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/40 italic">Principal Amount</p>
-                                        <p className="text-3xl font-black mt-2">
-                                            {user?.currency || "USD"} {totalAmount.toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/40 italic">Remaining</p>
-                                        <p className={`text-3xl font-black mt-2 ${remaining > 0 ? (activeTab === "debt" ? "text-red-500" : "text-green-500") : "text-foreground opacity-20"}`}>
+                                        <p className="text-xl font-semibold tabular-nums">
                                             {user?.currency || "USD"} {remaining.toLocaleString()}
+                                            <span className="text-xs text-muted-foreground font-normal ml-2">remaining</span>
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            of {totalAmount.toLocaleString()} total
                                         </p>
                                     </div>
+                                    <span className="text-xs text-muted-foreground font-medium">
+                                        {progress.toFixed(0)}%
+                                    </span>
                                 </div>
-                            </div>
+                                <Progress value={progress} className={cn("h-1.5", activeTab === "debt" ? "bg-red-500/10" : "bg-emerald-500/10")} />
 
-                            <div className="mt-10 flex items-center gap-4 relative">
-                                {dc.status !== "paid" ? (
-                                    <>
-                                        <div className="relative flex-1">
-                                            <Clock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30" />
-                                            <input
-                                                type="number"
-                                                placeholder={`Record ${activeTab === "debt" ? "repayment" : "collection"}...`}
-                                                className="w-full bg-background border border-border pl-12 pr-6 py-4 rounded-2xl font-bold focus:border-green-500/50"
-                                                value={paymentAmount[dc.id] || ""}
-                                                onChange={(e) => setPaymentAmount({ ...paymentAmount, [dc.id]: Number(e.target.value) })}
+                                <div className="flex items-center gap-2 pt-1">
+                                    {!isPaid ? (
+                                        <Dialog open={payOpen === dc.id} onOpenChange={(v) => !v && setPayOpen(null)}>
+                                            <DialogTrigger
+                                                render={
+                                                    <Button variant="outline" size="sm" className="w-full h-8 flex-1" onClick={() => setPayOpen(dc.id)}>
+                                                        Record {activeTab === "debt" ? "Payment" : "Collection"}
+                                                    </Button>
+                                                }
                                             />
+                                            <DialogContent className="sm:max-w-[300px]">
+                                                <DialogHeader>
+                                                    <DialogTitle className="text-sm">Settlement with {dc.personName}</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-4 py-2">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs">Amount ({user?.currency || "USD"})</Label>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="0.00"
+                                                            value={amount}
+                                                            onChange={(e) => setAmount(e.target.value)}
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                    <Button size="sm" className="w-full" onClick={() => handleRecord(dc.id)} disabled={recordPayment.isPending}>
+                                                        {recordPayment.isPending ? "Processing..." : `Record ${activeTab === "debt" ? "Payment" : "Settlement"}`}
+                                                    </Button>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    ) : (
+                                        <div className="w-full h-8 flex items-center justify-center gap-1.5 text-[10px] font-medium text-emerald-600 bg-emerald-500/5 border border-emerald-500/10 rounded">
+                                            <CheckCircle2 className="w-3 h-3" /> Reconciled
                                         </div>
-                                        <button
-                                            onClick={() => recordPayment.mutate({ id: dc.id, amount: paymentAmount[dc.id] || 0 })}
-                                            disabled={recordPayment.isPending}
-                                            className={`px-8 py-4 rounded-2xl font-black transition-all active:scale-95 shadow-xl disabled:opacity-50 ${activeTab === "debt" ? "bg-red-500 text-white shadow-red-500/30" : "bg-green-500 text-white shadow-green-500/30"
-                                                }`}
-                                        >
-                                            Process
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="w-full py-4 bg-muted border border-border/10 rounded-2xl flex items-center justify-center gap-3 italic font-bold text-muted-foreground/40 animate-pulse">
-                                        <CheckCircle2 className="w-5 h-5 opacity-40 text-green-500" />
-                                        Fully Reconciled
-                                    </div>
-                                )}
-                            </div>
-
-                            {dc.notes && (
-                                <div className="mt-8 pt-8 border-t border-border/5 text-sm text-muted-foreground/60 italic flex items-center gap-2">
-                                    <History className="w-4 h-4 opacity-20" />
-                                    {dc.notes}
+                                    )}
+                                    {dc.dueDate && (
+                                        <div className={cn(
+                                            "text-[10px] px-2 py-1 rounded border shrink-0 flex items-center gap-1",
+                                            isOverdue ? "text-red-600 bg-red-500/5 border-red-500/10" : "text-muted-foreground bg-muted/50 border-border/50"
+                                        )}>
+                                            <Calendar className="w-3 h-3" />
+                                            {new Date(dc.dueDate).toLocaleDateString()}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </CardContent>
+                        </Card>
                     );
                 })}
 
                 {(!list || list.length === 0) && (
-                    <div className="xl:col-span-2 py-40 border-2 border-dashed border-border rounded-[3rem] text-center flex flex-col items-center justify-center opacity-40 hover:opacity-100 transition-opacity space-y-6">
-                        <HandCoins className="w-24 h-24 text-muted-foreground" />
-                        <div>
-                            <h3 className="text-2xl font-black">Crystal Clear Balance</h3>
-                            <p className="mt-2 italic">No active {activeTab}s recorded at the moment.</p>
-                        </div>
-                    </div>
+                    <Card className="md:col-span-2 border-dashed">
+                        <CardContent className="py-16 text-center">
+                            <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                                <HandCoins className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                            <p className="text-sm text-muted-foreground">No {activeTab}s recorded yet.</p>
+                        </CardContent>
+                    </Card>
                 )}
             </div>
         </div>

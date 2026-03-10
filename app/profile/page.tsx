@@ -4,21 +4,21 @@ import { trpc } from "@/lib/trpc.client";
 import {
     User,
     Mail,
-    MapPin,
-    CreditCard,
     Settings,
-    Github,
-    Globe,
-    Camera,
+    CreditCard,
     Save,
-    Wallet,
-    Sparkles,
-    ChevronRight,
-    TrendingUp,
-    TrendingDown
+    LogOut,
+    Camera
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { authClient } from "@/app/api/auth/auth-client";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
+    const router = useRouter();
     const { data: user, refetch } = trpc.user.me.useQuery();
     const updateProfile = trpc.user.update.useMutation({
         onSuccess: () => refetch(),
@@ -33,114 +33,113 @@ export default function ProfilePage() {
         });
     };
 
+    const handleSignOut = async () => {
+        await authClient.signOut();
+        router.push("/api/auth/signin"); // Or wherever the login page is
+    };
+
     return (
-        <div className="space-y-12 animate-in fade-in slide-in-from-top-12 duration-1000">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row items-center gap-10 bg-card border border-border p-12 rounded-[3.5rem] shadow-sm relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:scale-110 transition-transform">
-                    <Wallet className="w-56 h-56 text-green-500" />
+        <div className="space-y-6 py-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-xl font-semibold">Settings</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">Manage your personal information and preferences.</p>
                 </div>
-
-                <div className="relative group/avatar">
-                    <div className="w-40 h-40 rounded-[2.5rem] bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-7xl font-black text-white shadow-2xl relative z-10">
-                        {user?.name?.charAt(0).toUpperCase() || <User size={64} />}
-                    </div>
-                    <button className="absolute bottom-[-10px] right-[-10px] p-4 bg-foreground text-background dark:bg-white dark:text-black rounded-2xl shadow-xl z-20 hover:scale-110 active:scale-95 transition-all group-hover/avatar:rotate-12">
-                        <Camera className="w-6 h-6" />
-                    </button>
-                    <div className="absolute inset-0 bg-green-500 rounded-[2.5rem] blur-2xl opacity-20 -z-10 group-hover/avatar:opacity-40 transition-opacity animate-pulse" />
-                </div>
-
-                <div className="text-center md:text-left relative">
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-green-500 italic flex items-center gap-2 mb-2 justify-center md:justify-start">
-                        <Sparkles className="w-4 h-4" />
-                        Verified User Node
-                    </span>
-                    <h1 className="text-6xl font-black tracking-tighter text-foreground leading-none">
-                        {user?.name || "Member Name"}
-                    </h1>
-                    <p className="text-xl text-muted-foreground mt-4 flex items-center gap-3 justify-center md:justify-start">
-                        <Mail className="w-5 h-5 text-green-500/60" />
-                        {user?.email || "email@domain.com"}
-                    </p>
-                </div>
+                <Button variant="outline" size="sm" onClick={handleSignOut} className="text-destructive hover:text-destructive">
+                    <LogOut className="w-4 h-4 mr-1.5" />
+                    Sign out
+                </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                {/* Settings Form */}
-                <div className="lg:col-span-2 bg-card border border-border rounded-[3rem] p-12 shadow-sm group">
-                    <h2 className="text-3xl font-black mb-10 flex items-center gap-4">
-                        <Settings className="w-8 h-8 text-green-500" />
-                        Identity Management
-                    </h2>
-                    <form onSubmit={handleUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Public Name</label>
-                            <input name="name" defaultValue={user?.name} className="w-full bg-background border border-border p-5 rounded-[1.5rem] font-bold focus:border-green-500/50 shadow-inner" />
-                        </div>
-
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">App Currency</label>
-                            <select name="currency" defaultValue={user?.currency || "USD"} className="w-full bg-background border border-border p-5 rounded-[1.5rem] font-bold focus:border-green-500/50 shadow-inner appearance-none">
-                                <option value="USD">USD ($)</option>
-                                <option value="EUR">EUR (€)</option>
-                                <option value="GBP">GBP (£)</option>
-                                <option value="JPY">JPY (¥)</option>
-                            </select>
-                        </div>
-
-                        <div className="md:col-span-2 pt-10 border-t border-border/50">
-                            <button type="submit" disabled={updateProfile.isPending} className="w-full py-6 bg-green-500 text-white rounded-[2rem] font-black text-xl hover:shadow-2xl hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center gap-4 group">
-                                {updateProfile.isPending ? "Syncing Identity..." : "Commit Changes"}
-                                <Save className="w-6 h-6 transition-transform group-hover:scale-110" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Profile Header Card */}
+                <Card className="lg:col-span-1">
+                    <CardHeader className="text-center pb-2">
+                        <div className="mx-auto w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-4 relative group">
+                            {user?.image ? (
+                                <img src={user.image} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                                <User className="w-10 h-10 text-muted-foreground" />
+                            )}
+                            <button className="absolute bottom-0 right-0 p-1.5 bg-background border border-border rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="w-3 h-3 text-muted-foreground" />
                             </button>
                         </div>
-                    </form>
-                </div>
+                        <CardTitle className="text-lg">{user?.name || "User"}</CardTitle>
+                        <CardDescription className="flex items-center justify-center gap-1.5 mt-1">
+                            <Mail className="w-3 h-3" />
+                            {user?.email}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-4 border-t divide-y">
+                        <div className="py-3 flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Account Status</span>
+                            <span className="font-medium text-emerald-600 bg-emerald-50 content-[''] px-2 py-0.5 rounded-full text-[10px]">Active</span>
+                        </div>
+                        <div className="py-3 flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Currency</span>
+                            <span className="font-medium">{user?.currency || "USD"}</span>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                {/* Meta Stats/Profile Badge */}
-                <div className="space-y-8 flex flex-col justify-between">
-                    <div className="bg-black text-white dark:bg-white dark:text-black p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-[-10%] left-[-10%] w-32 h-32 bg-green-500/20 rounded-full blur-3xl animate-pulse" />
-                        <div className="relative">
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Status Dashboard</p>
-                            <div className="mt-8 space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-bold opacity-60 flex items-center gap-2">
-                                        <Globe size={16} /> Location
-                                    </span>
-                                    <span className="font-black text-green-500">Global / Cloud</span>
+                {/* Edit Profile Form */}
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <div className="flex items-center gap-2">
+                            <Settings className="w-4 h-4 text-muted-foreground" />
+                            <CardTitle className="text-base font-medium">Personal Information</CardTitle>
+                        </div>
+                        <CardDescription>Update your display name and regional settings.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleUpdate} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="prof-name">Full Name</Label>
+                                    <Input id="prof-name" name="name" defaultValue={user?.name} required />
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="font-bold opacity-60 flex items-center gap-2">
-                                        <Github size={16} /> GitHub ID
-                                    </span>
-                                    <span className="font-black truncate w-24 text-right hover:underline cursor-pointer">@member_node</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="font-bold opacity-60 flex items-center gap-2">
-                                        <CreditCard size={16} /> Tier
-                                    </span>
-                                    <span className="bg-green-500 text-white dark:text-black font-black text-[10px] uppercase px-3 py-1 rounded-full shadow-lg shadow-green-500/20">Elite Cloud</span>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="prof-currency">Default Currency</Label>
+                                    <select id="prof-currency" name="currency" defaultValue={user?.currency || "USD"} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                                        <option value="USD">USD ($)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="GBP">GBP (£)</option>
+                                        <option value="JPY">JPY (¥)</option>
+                                        <option value="CHF">CHF (₣)</option>
+                                    </select>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="bg-card border-2 border-green-500/10 p-10 rounded-[3rem] text-center space-y-4 hover:border-green-500/30 transition-all flex-1 flex flex-col items-center justify-center">
-                        <div className="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center text-green-500 shadow-inner">
-                            <TrendingUp className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <h4 className="text-xl font-black">Efficiency Index</h4>
-                            <p className="text-sm font-bold text-muted-foreground mt-1">94% of targets met this month</p>
-                        </div>
-                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-4">
-                            <div className="h-full bg-green-500 w-[94%]" />
-                        </div>
-                    </div>
-                </div>
+                            <div className="pt-4 flex justify-end gap-3 border-t">
+                                <Button type="submit" size="sm" disabled={updateProfile.isPending}>
+                                    <Save className="w-4 h-4 mr-1.5" />
+                                    {updateProfile.isPending ? "Saving..." : "Save changes"}
+                                </Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
             </div>
+
+            {/* Security/Plan Card */}
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-muted-foreground" />
+                        <CardTitle className="text-base font-medium">Subscription & Plan</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-between p-4 bg-muted/40 rounded-lg border">
+                        <div>
+                            <p className="text-sm font-medium">Free Plan</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">You are currently using the limited free version.</p>
+                        </div>
+                        <Button variant="outline" size="sm" disabled>Upgrade</Button>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

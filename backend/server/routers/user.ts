@@ -4,7 +4,7 @@ import { router, publicProcedure, protectedProcedure } from "../trpc";
 import { db } from "../../db";
 import { users } from "../../db/schema";
 import { TRPCError } from "@trpc/server";
-import { auth } from "../../lib/auth";
+import { auth } from "@/app/api/auth/auth";
 
 export const userRouter = router({
 

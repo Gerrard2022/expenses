@@ -1,9 +1,2 @@
-import { createAuthClient } from "better-auth/react";
-import { sentinelClient } from "@better-auth/infra/client";
-
-export const authClient = createAuthClient({
-    baseURL: "http://localhost:3000",
-    plugins: [
-        sentinelClient()
-    ]
-});
+// Auth client has been centralized — import from @/app/api/auth/auth-client instead.
+export { authClient } from "@/app/api/auth/auth-client";

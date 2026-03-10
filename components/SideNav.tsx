@@ -10,9 +10,10 @@ import {
     ListTree,
     User,
     Sun,
-    Moon
+    Moon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
@@ -28,61 +29,54 @@ export function SideNav() {
     const [isDark, setIsDark] = useState(false);
 
     useEffect(() => {
-        const isDarkMode = document.documentElement.classList.contains("dark");
-        setIsDark(isDarkMode);
+        setIsDark(document.documentElement.classList.contains("dark"));
     }, []);
 
     const toggleTheme = () => {
-        const newIsDark = !isDark;
-        setIsDark(newIsDark);
-        if (newIsDark) {
-            document.documentElement.classList.add("dark");
-        } else {
-            document.documentElement.classList.remove("dark");
-        }
+        const next = !isDark;
+        setIsDark(next);
+        document.documentElement.classList.toggle("dark", next);
     };
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-white/10 dark:bg-black/10 backdrop-blur-xl border-r border-green-500/20 px-4 py-8 flex flex-col items-center gap-8 z-50">
-            <div className="flex items-center gap-2 mb-8 select-none">
-                <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
-                    <Receipt className="text-white w-6 h-6" />
+        <aside className="fixed left-0 top-0 h-screen w-60 border-r border-border bg-background flex flex-col py-6 px-3 z-50">
+            {/* Logo */}
+            <div className="flex items-center gap-2 px-3 mb-6">
+                <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
+                    <Receipt className="w-4 h-4 text-background" />
                 </div>
-                <span className="text-xl font-bold tracking-tight text-foreground">
-                    Expens<span className="text-green-500">Wise</span>
-                </span>
+                <span className="text-sm font-semibold tracking-tight">ExpensWise</span>
             </div>
 
-            <nav className="flex-1 w-full flex flex-col gap-2">
+            {/* Nav */}
+            <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${isActive
-                                    ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
-                                    : "text-muted-foreground hover:bg-green-500/10 hover:text-green-500"
-                                }`}
-                        >
-                            <item.icon className="w-5 h-5" />
-                            <span className="font-medium">{item.label}</span>
-                            {isActive && (
-                                <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                            className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                                isActive
+                                    ? "bg-secondary text-foreground font-medium"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                             )}
+                        >
+                            <item.icon className="w-4 h-4 shrink-0" />
+                            {item.label}
                         </Link>
                     );
                 })}
             </nav>
 
+            {/* Theme toggle */}
             <button
                 onClick={toggleTheme}
-                className="w-full mt-auto flex items-center justify-center gap-3 px-4 py-4 rounded-2xl bg-foreground/5 hover:bg-foreground/10 transition-all duration-300 group border border-green-500/10"
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors mt-2"
             >
-                {isDark ? <Sun className="w-5 h-5 text-green-400" /> : <Moon className="w-5 h-5 text-green-600" />}
-                <span className="font-medium text-foreground">
-                    {isDark ? "Light Mode" : "Dark Mode"}
-                </span>
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDark ? "Light mode" : "Dark mode"}
             </button>
         </aside>
     );
