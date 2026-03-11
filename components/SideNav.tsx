@@ -11,9 +11,13 @@ import {
     User,
     Sun,
     Moon,
+    LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/lib/auth-session";
+import { authClient } from "@/app/api/auth/auth-client";
+import { useRouter } from "next/navigation";
 
 const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
@@ -36,6 +40,14 @@ export function SideNav() {
         const next = !isDark;
         setIsDark(next);
         document.documentElement.classList.toggle("dark", next);
+    };
+
+    const { data: session } = useSession();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await authClient.signOut();
+        router.push("/auth");
     };
 
     return (
@@ -70,14 +82,39 @@ export function SideNav() {
                 })}
             </nav>
 
-            {/* Theme toggle */}
-            <button
-                onClick={toggleTheme}
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors mt-2"
-            >
-                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                {isDark ? "Light mode" : "Dark mode"}
-            </button>
+            {/* Bottom Actions */}
+            <div className="mt-auto flex flex-col gap-1 pt-4 border-t border-border">
+                <button
+                    onClick={toggleTheme}
+                    className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                >
+                    {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    {isDark ? "Light mode" : "Dark mode"}
+                </button>
+
+                {session?.user && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30 flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
+                            {session.user.image ? (
+                                <img src={session.user.image} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <User className="w-4 h-4 text-muted-foreground" />
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">{session.user.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{session.user.email}</p>
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                            title="Log out"
+                        >
+                            <LogOut className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                )}
+            </div>
         </aside>
     );
 }
