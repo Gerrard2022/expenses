@@ -35,17 +35,20 @@ export default function AuthPage() {
 
         try {
             if (isLogin) {
+                console.log("Attempting sign in for:", form.email);
                 const { error: signInError } = await authClient.signIn.email({
                     email: form.email,
                     password: form.password,
                 });
 
                 if (signInError) {
+                    console.error("Sign in error:", signInError);
                     setError(signInError.message || "Invalid email or password.");
                     setLoading(false);
                     return;
                 }
             } else {
+                console.log("Attempting sign up for:", form.email);
                 if (form.password.length < 8) {
                     setError("Password must be at least 8 characters.");
                     setLoading(false);
@@ -59,15 +62,18 @@ export default function AuthPage() {
                 });
 
                 if (signUpError) {
+                    console.error("Sign up error:", signUpError);
                     setError(signUpError.message || "Could not create account.");
                     setLoading(false);
                     return;
                 }
             }
 
+            console.log("Auth success, redirecting...");
             router.push("/");
             router.refresh();
-        } catch {
+        } catch (err) {
+            console.error("Unexpected auth exception:", err);
             setError("Something went wrong. Please try again.");
         } finally {
             setLoading(false);
