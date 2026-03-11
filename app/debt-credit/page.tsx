@@ -27,14 +27,16 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useCurrencyStore } from "@/stores/currency.store";
+import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 
 export default function DebtCreditPage() {
     const [activeTab, setActiveTab] = useState<"debt" | "credit">("debt");
     const { data: list, refetch } = trpc.debtCredit.getAll.useQuery({ type: activeTab });
-    const { data: user } = trpc.user.me.useQuery();
     const [open, setOpen] = useState(false);
     const [payOpen, setPayOpen] = useState<string | null>(null);
     const [amount, setAmount] = useState<string>("");
+    const currency = useCurrencyStore((s) => s.currency);
 
     const createDC = trpc.debtCredit.create.useMutation({
         onSuccess: () => { refetch(); setOpen(false); },
@@ -120,7 +122,7 @@ export default function DebtCreditPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="dc-amount">Amount ({user?.currency || "USD"})</Label>
+                                        <Label htmlFor="dc-amount">Amount ({getCurrencySymbol(currency)})</Label>
                                         <Input id="dc-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
                                     </div>
                                     <div className="space-y-1.5">
@@ -165,7 +167,7 @@ export default function DebtCreditPage() {
                                     </div>
                                     <div>
                                         <CardTitle className="text-sm font-medium">{dc.personName}</CardTitle>
-                                        {dc.status !== "pending" && (
+                                        {dc.status && dc.status !== "pending" && (
                                             <p className="text-[10px] text-muted-foreground capitalize">{dc.status.replace("_", " ")}</p>
                                         )}
                                     </div>
@@ -184,11 +186,11 @@ export default function DebtCreditPage() {
                                 <div className="flex items-end justify-between">
                                     <div>
                                         <p className="text-xl font-semibold tabular-nums">
-                                            {user?.currency || "USD"} {remaining.toLocaleString()}
+                                            {formatCurrency(remaining, currency)}
                                             <span className="text-xs text-muted-foreground font-normal ml-2">remaining</span>
                                         </p>
                                         <p className="text-xs text-muted-foreground mt-0.5">
-                                            of {totalAmount.toLocaleString()} total
+                                            of {formatCurrency(totalAmount, currency)} total
                                         </p>
                                     </div>
                                     <span className="text-xs text-muted-foreground font-medium">
@@ -213,7 +215,7 @@ export default function DebtCreditPage() {
                                                 </DialogHeader>
                                                 <div className="space-y-4 py-2">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs">Amount ({user?.currency || "USD"})</Label>
+                                                        <Label className="text-xs">Amount ({getCurrencySymbol(currency)})</Label>
                                                         <Input
                                                             type="number"
                                                             placeholder="0.00"

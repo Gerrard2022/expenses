@@ -11,22 +11,26 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { useCurrencyStore } from "@/stores/currency.store";
+import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 
 export default function DashboardPage() {
   const { data: user } = trpc.user.me.useQuery();
   const { data: transactions } = trpc.transaction.getAll.useQuery();
   const { data: savings } = trpc.saving.getAll.useQuery();
   const { data: debts } = trpc.debtCredit.getAll.useQuery();
+  const currency = useCurrencyStore((s) => s.currency);
 
   const stats = useMemo(() => {
     const totalIncome = transactions?.filter(t => t.type === "income").reduce((acc, t) => acc + Number(t.amount), 0) || 0;
     const totalExpense = transactions?.filter(t => t.type === "expense").reduce((acc, t) => acc + Number(t.amount), 0) || 0;
     const currentSavings = savings?.reduce((acc, s) => acc + Number(s.currentAmount), 0) || 0;
     const activeDebts = debts?.filter(d => d.type === "debt" && d.status !== "paid").reduce((acc, d) => acc + (Number(d.amount) - Number(d.paidAmount)), 0) || 0;
-    return { totalIncome, totalExpense, balance: totalIncome - totalExpense, currentSavings, activeDebts, currency: user?.currency || "USD" };
-  }, [transactions, savings, debts, user]);
+    return { totalIncome, totalExpense, balance: totalIncome - totalExpense, currentSavings, activeDebts };
+  }, [transactions, savings, debts]);
 
   const recentTransactions = transactions?.slice(0, 8) || [];
 
@@ -51,10 +55,10 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Balance" value={stats.balance} currency={stats.currency} icon={Wallet} />
-        <StatCard label="Income" value={stats.totalIncome} currency={stats.currency} icon={TrendingUp} />
-        <StatCard label="Expenses" value={stats.totalExpense} currency={stats.currency} icon={TrendingDown} />
-        <StatCard label="Savings" value={stats.currentSavings} currency={stats.currency} icon={PiggyBank} />
+        <StatCard label="Balance" value={stats.balance} currency={currency} icon={Wallet} />
+        <StatCard label="Income" value={stats.totalIncome} currency={currency} icon={TrendingUp} />
+        <StatCard label="Expenses" value={stats.totalExpense} currency={currency} icon={TrendingDown} />
+        <StatCard label="Savings" value={stats.currentSavings} currency={currency} icon={PiggyBank} />
       </div>
 
       {/* Recent Transactions */}
@@ -80,7 +84,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <span className={`text-sm font-medium tabular-nums ${tx.type === "income" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                    {tx.type === "income" ? "+" : "-"}{stats.currency} {Number(tx.amount).toLocaleString()}
+                    {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount, currency)}
                   </span>
                 </div>
               ))}
@@ -106,7 +110,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm font-medium">Outstanding debt</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {stats.currency} {stats.activeDebts.toLocaleString()} pending
+                {formatCurrency(stats.activeDebts, currency)} pending
               </p>
             </div>
             <Link
@@ -131,7 +135,7 @@ function StatCard({ label, value, currency, icon: Icon }: { label: string; value
           <Icon className="w-4 h-4 text-muted-foreground" />
         </div>
         <p className="text-lg font-semibold tabular-nums">
-          {currency} {Math.abs(value).toLocaleString()}
+          {formatCurrency(Math.abs(value), currency as any)}
         </p>
       </CardContent>
     </Card>

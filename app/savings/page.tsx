@@ -20,13 +20,15 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { useCurrencyStore } from "@/stores/currency.store";
+import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 
 export default function SavingsPage() {
     const { data: savings, refetch } = trpc.saving.getAll.useQuery();
-    const { data: user } = trpc.user.me.useQuery();
     const [open, setOpen] = useState(false);
     const [depositOpen, setDepositOpen] = useState<string | null>(null);
     const [amount, setAmount] = useState<string>("");
+    const currency = useCurrencyStore((s) => s.currency);
 
     const createSaving = trpc.saving.create.useMutation({
         onSuccess: () => { refetch(); setOpen(false); },
@@ -83,7 +85,7 @@ export default function SavingsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="goal-target">Target ({user?.currency || "USD"})</Label>
+                                    <Label htmlFor="goal-target">Target ({getCurrencySymbol(currency)})</Label>
                                     <Input id="goal-target" name="targetAmount" type="number" step="0.01" placeholder="0.00" required />
                                 </div>
                                 <div className="space-y-1.5">
@@ -131,10 +133,10 @@ export default function SavingsPage() {
                                 <div className="flex items-end justify-between">
                                     <div>
                                         <p className="text-2xl font-semibold tabular-nums">
-                                            {user?.currency || "USD"} {Number(s.currentAmount).toLocaleString()}
+                                            {formatCurrency(s.currentAmount ?? 0, currency)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            of {Number(s.targetAmount).toLocaleString()} goal
+                                            of {formatCurrency(s.targetAmount ?? 0, currency)} goal
                                         </p>
                                     </div>
                                     <span className={`text-xs font-medium ${isCompleted ? "text-emerald-600" : "text-muted-foreground"}`}>
@@ -158,7 +160,7 @@ export default function SavingsPage() {
                                             </DialogHeader>
                                             <div className="space-y-4 py-2">
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-xs">Amount ({user?.currency || "USD"})</Label>
+                                                    <Label className="text-xs">Amount ({getCurrencySymbol(currency)})</Label>
                                                     <Input
                                                         type="number"
                                                         placeholder="0.00"

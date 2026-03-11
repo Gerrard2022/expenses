@@ -16,10 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { authClient } from "@/app/api/auth/auth-client";
 import { useRouter } from "next/navigation";
+import { useCurrencyStore, CURRENCIES, CurrencyCode } from "@/stores/currency.store";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function ProfilePage() {
     const router = useRouter();
     const { data: user, refetch } = trpc.user.me.useQuery();
+    const { currency, setCurrency } = useCurrencyStore();
     const updateProfile = trpc.user.update.useMutation({
         onSuccess: () => refetch(),
     });
@@ -27,9 +30,11 @@ export default function ProfilePage() {
     const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
+        const selectedCurrency = formData.get("currency") as CurrencyCode;
+        setCurrency(selectedCurrency);
         await updateProfile.mutateAsync({
             name: formData.get("name") as string,
-            currency: formData.get("currency") as string,
+            currency: selectedCurrency,
         });
     };
 
@@ -78,7 +83,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="py-3 flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Currency</span>
-                            <span className="font-medium">{user?.currency || "USD"}</span>
+                            <span className="font-medium">{getCurrencySymbol(currency)} ({currency})</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -101,12 +106,10 @@ export default function ProfilePage() {
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="prof-currency">Default Currency</Label>
-                                    <select id="prof-currency" name="currency" defaultValue={user?.currency || "USD"} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                                        <option value="USD">USD ($)</option>
-                                        <option value="EUR">EUR (€)</option>
-                                        <option value="GBP">GBP (£)</option>
-                                        <option value="JPY">JPY (¥)</option>
-                                        <option value="CHF">CHF (₣)</option>
+                                    <select id="prof-currency" name="currency" value={currency} onChange={(e) => setCurrency(e.target.value as CurrencyCode)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                                        {CURRENCIES.map((c) => (
+                                            <option key={c.code} value={c.code}>{c.symbol} — {c.label}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

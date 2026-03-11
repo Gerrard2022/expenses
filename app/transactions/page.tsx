@@ -20,14 +20,16 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { useCurrencyStore } from "@/stores/currency.store";
+import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 
 export default function TransactionsPage() {
     const [filter, setFilter] = useState<{ type?: any; categoryId?: string }>({});
     const { data: transactions, refetch } = trpc.transaction.getAll.useQuery(filter);
     const { data: categories } = trpc.category.getAll.useQuery();
-    const { data: user } = trpc.user.me.useQuery();
     const [search, setSearch] = useState("");
     const [open, setOpen] = useState(false);
+    const currency = useCurrencyStore((s) => s.currency);
 
     const createTransaction = trpc.transaction.create.useMutation({
         onSuccess: () => { refetch(); setOpen(false); },
@@ -84,7 +86,7 @@ export default function TransactionsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="tx-amount">Amount ({user?.currency || "USD"})</Label>
+                                    <Label htmlFor="tx-amount">Amount ({getCurrencySymbol(currency)})</Label>
                                     <Input id="tx-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
                                 </div>
                                 <div className="space-y-1.5">
@@ -170,7 +172,7 @@ export default function TransactionsPage() {
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <span className={`text-sm font-medium tabular-nums ${tx.type === "income" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                                            {tx.type === "income" ? "+" : "-"}{user?.currency || "USD"} {Number(tx.amount).toLocaleString()}
+                                            {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount, currency)}
                                         </span>
                                         <button
                                             onClick={() => deleteTransaction.mutate({ id: tx.id })}
