@@ -26,12 +26,11 @@ export const auth = betterAuth({
         },
     },
     baseURL: process.env.BETTER_AUTH_URL,
-    advanced: {
-        trustedOrigins: [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
-    },
+    trustedOrigins: [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://write-expenses.vercel.app"
+    ],
     plugins: [
         dash()
     ]
