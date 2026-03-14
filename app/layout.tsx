@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Provider from "./provider";
 import { AppShell } from "@/components/AppShell";
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-montserrat",
+});
 
 export const metadata: Metadata = {
   title: "ExpensWise",
@@ -14,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="antialiased font-sans">
+    <html lang="en" className={`dark ${montserrat.variable}`}>
+      <body className={`${montserrat.className} antialiased`}>
         <Provider>
           <AppShell>
             {children}
