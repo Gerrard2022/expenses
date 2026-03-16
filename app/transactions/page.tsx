@@ -5,6 +5,7 @@ import {
     Plus,
     Search,
     Trash2,
+    Edit2,
     ArrowUpRight,
     ArrowDownLeft,
     Calendar as CalendarIcon,
@@ -45,11 +46,18 @@ export default function TransactionsPage() {
     const { data: categories } = trpc.category.getAll.useQuery();
     const [search, setSearch] = useState("");
     const [open, setOpen] = useState(false);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editingTx, setEditingTx] = useState<any>(null);
     const [date, setDate] = useState<Date>(new Date());
+    const [selectedType, setSelectedType] = useState<string>("expense");
     const currency = useCurrencyStore((s) => s.currency);
 
     const createTransaction = trpc.transaction.create.useMutation({
-        onSuccess: () => { refetch(); setOpen(false); setDate(new Date()); },
+        onSuccess: () => { refetch(); setOpen(false); setDate(new Date()); setSelectedType("expense"); },
+    });
+
+    const updateTransaction = trpc.transaction.update.useMutation({
+        onSuccess: () => { refetch(); setEditOpen(false); setEditingTx(null); },
     });
 
     const deleteTransaction = trpc.transaction.delete.useMutation({
@@ -63,12 +71,35 @@ export default function TransactionsPage() {
             name: formData.get("name") as string,
             amount: Number(formData.get("amount")),
             fee: Number(formData.get("fee")) || 0,
-            type: formData.get("type") as any,
-            paymentMode: formData.get("paymentMode") as any || "hand",
+            type: selectedType as any,
+            paymentMode: formData.get("paymentMode") as any || "momo",
             date: date.toISOString(),
             categoryId: formData.get("categoryId") as string || undefined,
             notes: formData.get("notes") as string || undefined,
         });
+    };
+
+    const handleEdit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!editingTx) return;
+        const formData = new FormData(e.currentTarget);
+        await updateTransaction.mutateAsync({
+            id: editingTx.id,
+            name: formData.get("name") as string,
+            amount: Number(formData.get("amount")),
+            fee: Number(formData.get("fee")) || 0,
+            type: formData.get("type") as any,
+            paymentMode: formData.get("paymentMode") as any,
+            date: date.toISOString(),
+            categoryId: formData.get("categoryId") as string || undefined,
+            notes: formData.get("notes") as string || undefined,
+        });
+    };
+
+    const startEdit = (tx: any) => {
+        setEditingTx(tx);
+        setDate(new Date(tx.date));
+        setEditOpen(true);
     };
 
     const filtered = transactions?.filter(tx =>
@@ -105,18 +136,8 @@ export default function TransactionsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="tx-amount">Amount ({getCurrencySymbol(currency)})</Label>
-                                    <Input id="tx-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="tx-fee">Fee ({getCurrencySymbol(currency)})</Label>
-                                    <Input id="tx-fee" name="fee" type="number" step="0.01" placeholder="0.00" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
                                     <Label>Type</Label>
-                                    <Select name="type" defaultValue="expense">
+                                    <Select name="type" defaultValue="expense" onValueChange={(v) => v && setSelectedType(v)}>
                                         <SelectTrigger className="w-full">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -129,7 +150,7 @@ export default function TransactionsPage() {
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label>Payment Mode</Label>
-                                    <Select name="paymentMode" defaultValue="hand">
+                                    <Select name="paymentMode" defaultValue="momo">
                                         <SelectTrigger className="w-full">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -140,6 +161,18 @@ export default function TransactionsPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="tx-amount">Amount ({getCurrencySymbol(currency)})</Label>
+                                    <Input id="tx-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
+                                </div>
+                                {selectedType !== "income" && (
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="tx-fee">Fee ({getCurrencySymbol(currency)})</Label>
+                                        <Input id="tx-fee" name="fee" type="number" step="0.01" placeholder="0.00" />
+                                    </div>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
@@ -193,6 +226,112 @@ export default function TransactionsPage() {
                                 </Button>
                             </div>
                         </form>
+                    </DialogContent>
+                </Dialog>
+                <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Edit transaction</DialogTitle>
+                        </DialogHeader>
+                        {editingTx && (
+                            <form onSubmit={handleEdit} className="space-y-4 pt-2">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="edit-tx-name">Label</Label>
+                                    <Input id="edit-tx-name" name="name" defaultValue={editingTx.name} required />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label>Type</Label>
+                                        <Select name="type" defaultValue={editingTx.type} onValueChange={(v) => v && setEditingTx({ ...editingTx, type: v })}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="expense">Expense</SelectItem>
+                                                <SelectItem value="income">Income</SelectItem>
+                                                <SelectItem value="saving">Saving</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label>Payment Mode</Label>
+                                        <Select name="paymentMode" defaultValue={editingTx.paymentMode}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="momo">MoMo</SelectItem>
+                                                <SelectItem value="bank">Bank</SelectItem>
+                                                <SelectItem value="hand">Hand</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-tx-amount">Amount ({getCurrencySymbol(currency)})</Label>
+                                        <Input id="edit-tx-amount" name="amount" type="number" step="0.01" defaultValue={Number(editingTx.amount)} required />
+                                    </div>
+                                    {editingTx.type !== "income" && (
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit-tx-fee">Fee ({getCurrencySymbol(currency)})</Label>
+                                            <Input id="edit-tx-fee" name="fee" type="number" step="0.01" defaultValue={Number(editingTx.fee)} />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label>Category</Label>
+                                        <Select name="categoryId" defaultValue={editingTx.categoryId || ""}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="No category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">No category</SelectItem>
+                                                {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label>Date</Label>
+                                        <Popover>
+                                            <PopoverTrigger
+                                                render={
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full justify-start text-left font-normal",
+                                                            !date && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                                    </Button>
+                                                }
+                                            />
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={date}
+                                                    onSelect={(d) => d && setDate(d)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="edit-tx-notes">Notes</Label>
+                                    <Input id="edit-tx-notes" name="notes" defaultValue={editingTx.notes || ""} placeholder="Optional notes" />
+                                </div>
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(false)}>Cancel</Button>
+                                    <Button type="submit" size="sm" disabled={updateTransaction.isPending}>
+                                        {updateTransaction.isPending ? "Updating..." : "Update"}
+                                    </Button>
+                                </div>
+                            </form>
+                        )}
                     </DialogContent>
                 </Dialog>
             </div>
@@ -258,9 +397,15 @@ export default function TransactionsPage() {
                                             )}
                                         </div>
                                         <button
+                                            onClick={() => startEdit(tx)}
+                                            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                                        >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
                                             onClick={() => deleteTransaction.mutate({ id: tx.id })}
                                             disabled={deleteTransaction.isPending}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all disabled:opacity-50"
+                                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all disabled:opacity-50"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>

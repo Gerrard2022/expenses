@@ -71,7 +71,7 @@ export default function DebtCreditPage() {
             personName: formData.get("personName") as string,
             amount: Number(formData.get("amount")),
             fee: Number(formData.get("fee")) || 0,
-            paymentMode: formData.get("paymentMode") as any || "hand",
+            paymentMode: formData.get("paymentMode") as any || "momo",
             dueDate: dueDate?.toISOString(),
             notes: formData.get("notes") as string || undefined,
         });
@@ -148,7 +148,7 @@ export default function DebtCreditPage() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1.5">
                                         <Label>Payment Mode</Label>
-                                        <Select name="paymentMode" defaultValue="hand">
+                                        <Select name="paymentMode" defaultValue="momo">
                                             <SelectTrigger className="w-full text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
