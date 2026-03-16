@@ -6,6 +6,7 @@ import {
     Plus,
     Target,
     Trash2,
+    Calendar as CalendarIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -19,19 +20,28 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
 import { useCurrencyStore } from "@/stores/currency.store";
 import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function SavingsPage() {
     const { data: savings, refetch } = trpc.saving.getAll.useQuery();
     const [open, setOpen] = useState(false);
     const [depositOpen, setDepositOpen] = useState<string | null>(null);
     const [amount, setAmount] = useState<string>("");
+    const [deadline, setDeadline] = useState<Date | undefined>(undefined);
     const currency = useCurrencyStore((s) => s.currency);
 
     const createSaving = trpc.saving.create.useMutation({
-        onSuccess: () => { refetch(); setOpen(false); },
+        onSuccess: () => { refetch(); setOpen(false); setDeadline(undefined); },
     });
 
     const depositSaving = trpc.saving.deposit.useMutation({
@@ -49,7 +59,7 @@ export default function SavingsPage() {
             name: formData.get("name") as string,
             targetAmount: Number(formData.get("targetAmount")),
             currentAmount: Number(formData.get("currentAmount")) || 0,
-            deadline: formData.get("deadline") as string || undefined,
+            deadline: deadline?.toISOString(),
         });
     };
 
@@ -94,8 +104,31 @@ export default function SavingsPage() {
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <Label htmlFor="goal-deadline">Deadline (Optional)</Label>
-                                <Input id="goal-deadline" name="deadline" type="date" />
+                                <Label>Deadline (Optional)</Label>
+                                <Popover>
+                                    <PopoverTrigger
+                                        render={
+                                            <Button
+                                                variant="outline"
+                                                className={cn(
+                                                    "w-full justify-start text-left font-normal",
+                                                    !deadline && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {deadline ? format(deadline, "PPP") : "Pick a date"}
+                                            </Button>
+                                        }
+                                    />
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={deadline}
+                                            onSelect={setDeadline}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                             <div className="flex justify-end gap-2 pt-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
@@ -176,8 +209,9 @@ export default function SavingsPage() {
                                         </DialogContent>
                                     </Dialog>
                                     {s.deadline && (
-                                        <div className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-1 rounded border border-border/50">
-                                            {new Date(s.deadline).toLocaleDateString()}
+                                        <div className="text-[10px] text-muted-foreground bg-muted/50 px-2 py-1 rounded border border-border/50 flex items-center gap-1">
+                                            <CalendarIcon className="w-3 h-3" />
+                                            {format(new Date(s.deadline), "MMM d, yyyy")}
                                         </div>
                                     )}
                                 </div>
