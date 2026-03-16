@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 
 const dcType = z.enum(["debt", "credit"]);
 const dcStatus = z.enum(["pending", "partially_paid", "paid"]);
+const paymentMode = z.enum(["momo", "bank", "hand"]);
 
 export const debtCreditRouter = router({
 
@@ -35,6 +36,8 @@ export const debtCreditRouter = router({
             type: dcType,
             personName: z.string().min(1),
             amount: z.number().positive(),
+            fee: z.number().min(0).optional(),
+            paymentMode: paymentMode.optional(),
             dueDate: z.string().datetime().optional(),
             notes: z.string().optional(),
         }))
@@ -43,6 +46,7 @@ export const debtCreditRouter = router({
                 .values({
                     ...input,
                     amount: String(input.amount),
+                    fee: input.fee ? String(input.fee) : "0",
                     dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
                     userId: ctx.session.user.id,
                 })
@@ -81,16 +85,19 @@ export const debtCreditRouter = router({
             id: z.string(),
             personName: z.string().min(1).optional(),
             amount: z.number().positive().optional(),
+            fee: z.number().min(0).optional(),
+            paymentMode: paymentMode.optional(),
             status: dcStatus.optional(),
             dueDate: z.string().datetime().optional(),
             notes: z.string().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
-            const { id, amount, dueDate, ...rest } = input;
+            const { id, amount, fee, dueDate, ...rest } = input;
             const [updated] = await db.update(debtsCredits)
                 .set({
                     ...rest,
                     ...(amount && { amount: String(amount) }),
+                    ...(fee !== undefined && { fee: String(fee) }),
                     ...(dueDate && { dueDate: new Date(dueDate) }),
                     updatedAt: new Date(),
                 })

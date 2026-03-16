@@ -7,6 +7,7 @@ import {
     Trash2,
     ArrowUpRight,
     ArrowDownLeft,
+    Calendar as CalendarIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,23 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { useCurrencyStore } from "@/stores/currency.store";
 import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 export default function TransactionsPage() {
     const [filter, setFilter] = useState<{ type?: any; categoryId?: string }>({});
@@ -29,10 +45,11 @@ export default function TransactionsPage() {
     const { data: categories } = trpc.category.getAll.useQuery();
     const [search, setSearch] = useState("");
     const [open, setOpen] = useState(false);
+    const [date, setDate] = useState<Date>(new Date());
     const currency = useCurrencyStore((s) => s.currency);
 
     const createTransaction = trpc.transaction.create.useMutation({
-        onSuccess: () => { refetch(); setOpen(false); },
+        onSuccess: () => { refetch(); setOpen(false); setDate(new Date()); },
     });
 
     const deleteTransaction = trpc.transaction.delete.useMutation({
@@ -45,8 +62,10 @@ export default function TransactionsPage() {
         await createTransaction.mutateAsync({
             name: formData.get("name") as string,
             amount: Number(formData.get("amount")),
+            fee: Number(formData.get("fee")) || 0,
             type: formData.get("type") as any,
-            date: new Date().toISOString(),
+            paymentMode: formData.get("paymentMode") as any || "hand",
+            date: date.toISOString(),
             categoryId: formData.get("categoryId") as string || undefined,
             notes: formData.get("notes") as string || undefined,
         });
@@ -90,20 +109,78 @@ export default function TransactionsPage() {
                                     <Input id="tx-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="tx-type">Type</Label>
-                                    <select id="tx-type" name="type" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                                        <option value="expense">Expense</option>
-                                        <option value="income">Income</option>
-                                        <option value="saving">Saving</option>
-                                    </select>
+                                    <Label htmlFor="tx-fee">Fee ({getCurrencySymbol(currency)})</Label>
+                                    <Input id="tx-fee" name="fee" type="number" step="0.01" placeholder="0.00" />
                                 </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="tx-category">Category</Label>
-                                <select id="tx-category" name="categoryId" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                                    <option value="">No category</option>
-                                    {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label>Type</Label>
+                                    <Select name="type" defaultValue="expense">
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="expense">Expense</SelectItem>
+                                            <SelectItem value="income">Income</SelectItem>
+                                            <SelectItem value="saving">Saving</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>Payment Mode</Label>
+                                    <Select name="paymentMode" defaultValue="hand">
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="momo">MoMo</SelectItem>
+                                            <SelectItem value="bank">Bank</SelectItem>
+                                            <SelectItem value="hand">Hand</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label>Category</Label>
+                                    <Select name="categoryId">
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="No category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">No category</SelectItem>
+                                            {categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>Date</Label>
+                                    <Popover>
+                                        <PopoverTrigger
+                                            render={
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal",
+                                                        !date && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                                </Button>
+                                            }
+                                        />
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={date}
+                                                onSelect={(d) => d && setDate(d)}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="tx-notes">Notes</Label>
@@ -167,13 +244,19 @@ export default function TransactionsPage() {
                                             <p className="text-sm font-medium truncate">{tx.name}</p>
                                             <p className="text-xs text-muted-foreground">
                                                 {categories?.find(c => c.id === tx.categoryId)?.name || "Uncategorized"} · {new Date(tx.date).toLocaleDateString()}
+                                                {tx.paymentMode && ` · via ${tx.paymentMode}`}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className={`text-sm font-medium tabular-nums ${tx.type === "income" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                                            {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount, currency)}
-                                        </span>
+                                        <div className="text-right">
+                                            <p className={`text-sm font-medium tabular-nums ${tx.type === "income" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                                                {tx.type === "income" ? "+" : "-"}{formatCurrency(Number(tx.amount), currency)}
+                                            </p>
+                                            {Number(tx.fee) > 0 && (
+                                                <p className="text-[10px] text-muted-foreground">Fee: {formatCurrency(Number(tx.fee), currency)}</p>
+                                            )}
+                                        </div>
                                         <button
                                             onClick={() => deleteTransaction.mutate({ id: tx.id })}
                                             disabled={deleteTransaction.isPending}

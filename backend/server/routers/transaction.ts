@@ -6,6 +6,7 @@ import { transactions } from "../../db/schema";
 import { TRPCError } from "@trpc/server";
 
 const txType = z.enum(["income", "expense", "saving", "credit", "debt"]);
+const paymentMode = z.enum(["momo", "bank", "hand"]);
 
 export const transactionRouter = router({
 
@@ -45,6 +46,8 @@ export const transactionRouter = router({
             type: txType,
             name: z.string().min(1),
             amount: z.number().positive(),
+            fee: z.number().min(0).optional(),
+            paymentMode: paymentMode.optional(),
             date: z.string().datetime(),
             categoryId: z.string().optional(),
             notes: z.string().optional(),
@@ -54,6 +57,7 @@ export const transactionRouter = router({
                 .values({
                     ...input,
                     amount: String(input.amount),
+                    fee: input.fee ? String(input.fee) : "0",
                     date: new Date(input.date),
                     userId: ctx.session.user.id,
                 })
@@ -67,16 +71,19 @@ export const transactionRouter = router({
             type: txType.optional(),
             name: z.string().min(1).optional(),
             amount: z.number().positive().optional(),
+            fee: z.number().min(0).optional(),
+            paymentMode: paymentMode.optional(),
             date: z.string().datetime().optional(),
             categoryId: z.string().optional(),
             notes: z.string().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
-            const { id, amount, date, ...rest } = input;
+            const { id, amount, fee, date, ...rest } = input;
             const [updated] = await db.update(transactions)
                 .set({
                     ...rest,
                     ...(amount && { amount: String(amount) }),
+                    ...(fee !== undefined && { fee: String(fee) }),
                     ...(date && { date: new Date(date) }),
                     updatedAt: new Date(),
                 })

@@ -3,10 +3,8 @@
 import { trpc } from "@/lib/trpc.client";
 import {
     HandCoins,
-    TrendingUp,
-    TrendingDown,
     Trash2,
-    Calendar,
+    Calendar as CalendarIcon,
     Plus,
     User,
     CheckCircle2,
@@ -25,8 +23,22 @@ import {
     DialogTrigger,
     DialogDescription,
 } from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 import { useCurrencyStore } from "@/stores/currency.store";
 import { formatCurrency, getCurrencySymbol } from "@/lib/currency";
 
@@ -36,10 +48,11 @@ export default function DebtCreditPage() {
     const [open, setOpen] = useState(false);
     const [payOpen, setPayOpen] = useState<string | null>(null);
     const [amount, setAmount] = useState<string>("");
+    const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
     const currency = useCurrencyStore((s) => s.currency);
 
     const createDC = trpc.debtCredit.create.useMutation({
-        onSuccess: () => { refetch(); setOpen(false); },
+        onSuccess: () => { refetch(); setOpen(false); setDueDate(undefined); },
     });
 
     const recordPayment = trpc.debtCredit.recordPayment.useMutation({
@@ -57,7 +70,9 @@ export default function DebtCreditPage() {
             type: activeTab,
             personName: formData.get("personName") as string,
             amount: Number(formData.get("amount")),
-            dueDate: formData.get("dueDate") as string || undefined,
+            fee: Number(formData.get("fee")) || 0,
+            paymentMode: formData.get("paymentMode") as any || "hand",
+            dueDate: dueDate?.toISOString(),
             notes: formData.get("notes") as string || undefined,
         });
     };
@@ -126,8 +141,50 @@ export default function DebtCreditPage() {
                                         <Input id="dc-amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="dc-date">Due Date</Label>
-                                        <Input id="dc-date" name="dueDate" type="date" />
+                                        <Label htmlFor="dc-fee">Fee ({getCurrencySymbol(currency)})</Label>
+                                        <Input id="dc-fee" name="fee" type="number" step="0.01" placeholder="0.00" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label>Payment Mode</Label>
+                                        <Select name="paymentMode" defaultValue="hand">
+                                            <SelectTrigger className="w-full text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="momo">MoMo</SelectItem>
+                                                <SelectItem value="bank">Bank</SelectItem>
+                                                <SelectItem value="hand">Hand</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label>Due Date</Label>
+                                        <Popover>
+                                            <PopoverTrigger
+                                                render={
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "w-full justify-start text-left font-normal text-xs",
+                                                            !dueDate && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                                        {dueDate ? format(dueDate, "PPP") : "Pick a date"}
+                                                    </Button>
+                                                }
+                                            />
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={dueDate}
+                                                    onSelect={setDueDate}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
@@ -167,16 +224,16 @@ export default function DebtCreditPage() {
                                     </div>
                                     <div>
                                         <CardTitle className="text-sm font-medium">{dc.personName}</CardTitle>
-                                        {dc.status && dc.status !== "pending" && (
-                                            <p className="text-[10px] text-muted-foreground capitalize">{dc.status.replace("_", " ")}</p>
-                                        )}
+                                        <p className="text-[10px] text-muted-foreground capitalize">
+                                            {dc.status?.replace("_", " ")} · via {dc.paymentMode}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     {isOverdue && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                                     <button
                                         onClick={() => deleteDC.mutate({ id: dc.id })}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all font-sans"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
@@ -189,9 +246,10 @@ export default function DebtCreditPage() {
                                             {formatCurrency(remaining, currency)}
                                             <span className="text-xs text-muted-foreground font-normal ml-2">remaining</span>
                                         </p>
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                            of {formatCurrency(totalAmount, currency)} total
-                                        </p>
+                                        <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                                            <span>of {formatCurrency(totalAmount, currency)} total</span>
+                                            {Number(dc.fee) > 0 && <span>(Fee: {formatCurrency(Number(dc.fee), currency)})</span>}
+                                        </div>
                                     </div>
                                     <span className="text-xs text-muted-foreground font-medium">
                                         {progress.toFixed(0)}%
@@ -240,8 +298,8 @@ export default function DebtCreditPage() {
                                             "text-[10px] px-2 py-1 rounded border shrink-0 flex items-center gap-1",
                                             isOverdue ? "text-red-600 bg-red-500/5 border-red-500/10" : "text-muted-foreground bg-muted/50 border-border/50"
                                         )}>
-                                            <Calendar className="w-3 h-3" />
-                                            {new Date(dc.dueDate).toLocaleDateString()}
+                                            <CalendarIcon className="w-3 h-3" />
+                                            {format(new Date(dc.dueDate), "MMM d, yyyy")}
                                         </div>
                                     )}
                                 </div>
