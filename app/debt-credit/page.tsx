@@ -8,7 +8,9 @@ import {
     Plus,
     User,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Search,
+    ArrowUpDown
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,9 @@ export default function DebtCreditPage() {
     const [payOpen, setPayOpen] = useState<string | null>(null);
     const [amount, setAmount] = useState<string>("");
     const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+    const [search, setSearch] = useState("");
+    const [sortBy, setSortBy] = useState<"amount" | "time">("time");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const currency = useCurrencyStore((s) => s.currency);
 
     const createDC = trpc.debtCredit.create.useMutation({
@@ -81,6 +86,23 @@ export default function DebtCreditPage() {
         if (!amount || isNaN(Number(amount))) return;
         await recordPayment.mutateAsync({ id, amount: Number(amount) });
     };
+
+    const filteredList = list?.filter((dc) => {
+        const searchLower = search.toLowerCase();
+        const matchesName = dc.personName.toLowerCase().includes(searchLower);
+        const matchesAmount = dc.amount.toString().includes(searchLower);
+        return matchesName || matchesAmount;
+    }).sort((a, b) => {
+        if (sortBy === "amount") {
+            const valA = Number(a.amount);
+            const valB = Number(b.amount);
+            return sortOrder === "asc" ? valA - valB : valB - valA;
+        } else {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+        }
+    });
 
     return (
         <div className="space-y-6 py-6">
@@ -203,8 +225,40 @@ export default function DebtCreditPage() {
                 </div>
             </div>
 
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search name or amount..."
+                        className="pl-9"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="time">Date</SelectItem>
+                            <SelectItem value="amount">Amount</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                        title={sortOrder === "asc" ? "Ascending" : "Descending"}
+                        className="shrink-0"
+                    >
+                        <ArrowUpDown className={cn("h-4 w-4 transition-transform", sortOrder === "desc" && "rotate-180")} />
+                    </Button>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {list?.map((dc) => {
+                {filteredList?.map((dc) => {
                     const totalAmount = Number(dc.amount);
                     const paidAmount = Number(dc.paidAmount);
                     const remaining = totalAmount - paidAmount;
@@ -308,13 +362,15 @@ export default function DebtCreditPage() {
                     );
                 })}
 
-                {(!list || list.length === 0) && (
+                {(!filteredList || filteredList.length === 0) && (
                     <Card className="md:col-span-2 border-dashed">
                         <CardContent className="py-16 text-center">
                             <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                                 <HandCoins className="w-5 h-5 text-muted-foreground" />
                             </div>
-                            <p className="text-sm text-muted-foreground">No {activeTab}s recorded yet.</p>
+                            <p className="text-sm text-muted-foreground">
+                                {search ? "No matches found for your search." : `No ${activeTab}s recorded yet.`}
+                            </p>
                         </CardContent>
                     </Card>
                 )}

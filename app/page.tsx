@@ -8,6 +8,7 @@ import {
   PiggyBank,
   Plus,
   ArrowUpRight,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -16,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { cn } from "@/lib/utils";
 import { useCurrencyStore } from "@/stores/currency.store";
 import { formatCurrency } from "@/lib/currency";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -58,16 +60,34 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const totalIncome = transactions?.filter(t => t.type === "income").reduce((acc, t) => acc + Number(t.amount), 0) || 0;
     const totalExpense = transactions?.filter(t => t.type === "expense").reduce((acc, t) => acc + Number(t.amount), 0) || 0;
+    
+    // Money gathered from debts (borrowed)
+    const totalBorrowed = debts?.filter(d => d.type === "debt").reduce((acc, d) => acc + Number(d.amount), 0) || 0;
+    // Money lent out (credit)
+    const totalLent = debts?.filter(d => d.type === "credit").reduce((acc, d) => acc + Number(d.amount), 0) || 0;
+
+    const moneyIn = totalIncome + totalBorrowed;
+    const moneyOut = totalExpense + totalLent;
+
     const currentSavings = savings?.reduce((acc, s) => acc + Number(s.currentAmount), 0) || 0;
     const activeDebts = debts?.filter(d => d.type === "debt" && d.status !== "paid").reduce((acc, d) => acc + (Number(d.amount) - Number(d.paidAmount)), 0) || 0;
-    return { totalIncome, totalExpense, balance: totalIncome - totalExpense, currentSavings, activeDebts };
+    
+    return { 
+      totalIn: moneyIn,
+      incomeAlone: totalIncome,
+      debtReceived: totalBorrowed,
+      totalOut: moneyOut, 
+      expenseAlone: totalExpense,
+      moneyCreditted: totalLent,
+      balance: moneyIn - moneyOut, 
+      currentSavings, 
+      activeDebts 
+    };
   }, [transactions, savings, debts]);
 
   const recentTransactions = transactions?.slice(0, 8) || [];
 
   const {
-    filteredTransactions,
-    filteredDebts,
     chartDataIncomeExpense,
     chartDataDebtCredit,
     chartDataCategories,
@@ -95,13 +115,20 @@ export default function DashboardPage() {
     const txs = (transactions || []).filter(t => startDate ? isAfter(new Date(t.date), startDate) : true);
     const dbs = (debts || []).filter(d => startDate ? d.createdAt && isAfter(new Date(d.createdAt), startDate) : true);
 
-    // Income Expense Area Chart Data
+    // Total Flow Chart Data (Income+Debt vs Expense+Credit)
     const txByDate: Record<string, { income: number; expense: number }> = {};
     txs.forEach(t => {
       const dateStr = format(new Date(t.date), "MMM dd");
       if (!txByDate[dateStr]) txByDate[dateStr] = { income: 0, expense: 0 };
       if (t.type === "income") txByDate[dateStr].income += Number(t.amount);
       if (t.type === "expense") txByDate[dateStr].expense += Number(t.amount);
+    });
+    dbs.forEach(d => {
+      if (!d.createdAt) return;
+      const dateStr = format(new Date(d.createdAt), "MMM dd");
+      if (!txByDate[dateStr]) txByDate[dateStr] = { income: 0, expense: 0 };
+      if (d.type === "debt") txByDate[dateStr].income += Number(d.amount); // Money In
+      if (d.type === "credit") txByDate[dateStr].expense += Number(d.amount); // Money Out
     });
     const iterDate = startDate ? new Date(startDate) : (txs.length ? new Date(txs[txs.length - 1].date) : new Date());
     while (iterDate <= now) {
@@ -175,8 +202,8 @@ export default function DashboardPage() {
   const hasData = (transactions && transactions.length > 0) || (debts && debts.length > 0);
 
   const incomeExpenseConfig: ChartConfig = {
-    income: { label: "Income", color: "#10b981" },
-    expense: { label: "Expense", color: "#ef4444" },
+    income: { label: "Money In", color: "#10b981" },
+    expense: { label: "Money Out", color: "#ef4444" },
   };
 
   const categoryConfig: ChartConfig = {
@@ -212,12 +239,115 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Balance" value={stats.balance} currency={currency} icon={Wallet} />
-        <StatCard label="Income" value={stats.totalIncome} currency={currency} icon={TrendingUp} />
-        <StatCard label="Expenses" value={stats.totalExpense} currency={currency} icon={TrendingDown} />
-        <StatCard label="Savings" value={stats.currentSavings} currency={currency} icon={PiggyBank} />
+      {/* Stats Dashboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Money In Section */}
+        <div className="space-y-4">
+          <Card className="border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-md">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Money In</span>
+                    <Tooltip>
+                      <TooltipTrigger
+                      render={<Info className="w-3.5 h-3.5 text-emerald-500/50 cursor-help" />}
+                    />
+                      <TooltipContent>Total funds received from all sources (Income + Debts)</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Total Inflow</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                +{formatCurrency(stats.totalIn, currency)}
+              </p>
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-2 gap-4">
+             <Card className="border-emerald-500/10 bg-background/50">
+                <CardContent className="pt-4 pb-3 px-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Income Alone</p>
+                  <p className="text-lg font-bold text-emerald-600">+{formatCurrency(stats.incomeAlone, currency)}</p>
+                </CardContent>
+             </Card>
+             <Card className="border-emerald-500/10 bg-background/50">
+                <CardContent className="pt-4 pb-3 px-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Debt Received</p>
+                  <p className="text-lg font-bold text-emerald-600">+{formatCurrency(stats.debtReceived, currency)}</p>
+                </CardContent>
+             </Card>
+          </div>
+        </div>
+
+        {/* Money Out Section */}
+        <div className="space-y-4">
+          <Card className="border-red-500/20 bg-red-50/30 dark:bg-red-950/20 shadow-md">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-red-700 dark:text-red-400">Money Out</span>
+                    <Tooltip>
+                      <TooltipTrigger
+                      render={<Info className="w-3.5 h-3.5 text-red-500/50 cursor-help" />}
+                    />
+                      <TooltipContent>Total money spent or lent out (Expenses + Credits)</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Total Outflow</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                  <TrendingDown className="w-5 h-5 text-red-500" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">
+                -{formatCurrency(stats.totalOut, currency)}
+              </p>
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-2 gap-4">
+             <Card className="border-red-500/10 bg-background/50">
+                <CardContent className="pt-4 pb-3 px-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Expenses Alone</p>
+                  <p className="text-lg font-bold text-red-600">-{formatCurrency(stats.expenseAlone, currency)}</p>
+                </CardContent>
+             </Card>
+             <Card className="border-red-500/10 bg-background/50">
+                <CardContent className="pt-4 pb-3 px-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Money Creditted</p>
+                  <p className="text-lg font-bold text-red-600">-{formatCurrency(stats.moneyCreditted, currency)}</p>
+                </CardContent>
+             </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+         <Card className="bg-muted/30 border-none shadow-none">
+            <CardContent className="py-4 flex items-center justify-between">
+               <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Wallet Balance</p>
+                  <p className={cn("text-xl font-bold tabular-nums", stats.balance >= 0 ? "text-primary" : "text-red-600")}>
+                    {stats.balance >= 0 ? "+" : "-"}{formatCurrency(Math.abs(stats.balance), currency)}
+                  </p>
+               </div>
+               <Wallet className="w-6 h-6 text-muted-foreground/30" />
+            </CardContent>
+         </Card>
+         <Card className="bg-muted/30 border-none shadow-none">
+            <CardContent className="py-4 flex items-center justify-between">
+               <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Current Savings</p>
+                  <p className="text-xl font-bold text-blue-600 tabular-nums">{formatCurrency(stats.currentSavings, currency)}</p>
+               </div>
+               <PiggyBank className="w-6 h-6 text-muted-foreground/30" />
+            </CardContent>
+         </Card>
       </div>
 
       {/* No Data State */}
@@ -257,8 +387,8 @@ export default function DashboardPage() {
             {/* Income vs Expense Area Chart */}
             <Card className="min-w-0">
               <CardHeader>
-                <CardTitle className="text-base">Income vs Expenses</CardTitle>
-                <CardDescription>Area chart showing your cash flow</CardDescription>
+                <CardTitle className="text-base">Money In vs Money Out</CardTitle>
+                <CardDescription>Area chart showing your total cash flow (including loans)</CardDescription>
               </CardHeader>
               <CardContent className="px-2 sm:px-6">
                 <ChartContainer config={incomeExpenseConfig} className="h-[300px] w-full">
@@ -457,18 +587,4 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({ label, value, currency, icon: Icon }: { label: string; value: number; currency: string; icon: React.ElementType }) {
-  return (
-    <Card>
-      <CardContent className="pt-5 pb-4 px-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <Icon className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <p className="text-lg font-semibold tabular-nums">
-          {formatCurrency(Math.abs(value), currency as any)}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
+

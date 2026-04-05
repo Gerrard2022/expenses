@@ -3,6 +3,7 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Provider from "./provider";
 import { AppShell } from "@/components/AppShell";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -24,7 +25,7 @@ export default function RootLayout({
       <body className={`${montserrat.className} antialiased`}>
         <Provider>
           <AppShell>
-            {children}
+            <TooltipProvider>{children}</TooltipProvider>
           </AppShell>
         </Provider>
       </body>
