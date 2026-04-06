@@ -93,9 +93,28 @@ export const debtCreditRouter = router({
         }))
         .mutation(async ({ ctx, input }) => {
             const { id, amount, fee, dueDate, ...rest } = input;
+            
+            // Recalculate status if amount changes
+            const [current] = await db.select().from(debtsCredits)
+                .where(and(
+                    eq(debtsCredits.id, id),
+                    eq(debtsCredits.userId, ctx.session.user.id),
+                ));
+            
+            if (!current) throw new TRPCError({ code: "NOT_FOUND" });
+
+            let status = rest.status;
+            if (amount !== undefined && status === undefined) {
+                const paid = Number(current.paidAmount);
+                status = paid >= amount ? "paid"
+                    : paid > 0 ? "partially_paid"
+                    : "pending";
+            }
+
             const [updated] = await db.update(debtsCredits)
                 .set({
                     ...rest,
+                    ...(status && { status }),
                     ...(amount && { amount: String(amount) }),
                     ...(fee !== undefined && { fee: String(fee) }),
                     ...(dueDate && { dueDate: new Date(dueDate) }),
@@ -106,7 +125,6 @@ export const debtCreditRouter = router({
                     eq(debtsCredits.userId, ctx.session.user.id),
                 ))
                 .returning();
-            if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
             return updated;
         }),
 

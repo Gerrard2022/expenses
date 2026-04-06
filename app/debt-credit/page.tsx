@@ -10,7 +10,9 @@ import {
     CheckCircle2,
     AlertCircle,
     Search,
-    ArrowUpDown
+    ArrowUpDown,
+    Pencil,
+    MoreVertical
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
     Popover,
     PopoverContent,
     PopoverTrigger,
@@ -54,7 +62,13 @@ export default function DebtCreditPage() {
     const [search, setSearch] = useState("");
     const [sortBy, setSortBy] = useState<"amount" | "time">("time");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [editingRecord, setEditingRecord] = useState<any>(null);
+    const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined);
     const currency = useCurrencyStore((s) => s.currency);
+
+    const updateDC = trpc.debtCredit.update.useMutation({
+        onSuccess: () => { refetch(); setEditingRecord(null); setEditDueDate(undefined); },
+    });
 
     const createDC = trpc.debtCredit.create.useMutation({
         onSuccess: () => { refetch(); setOpen(false); setDueDate(undefined); },
@@ -79,6 +93,21 @@ export default function DebtCreditPage() {
             paymentMode: formData.get("paymentMode") as any || "momo",
             dueDate: dueDate?.toISOString(),
             notes: formData.get("notes") as string || undefined,
+        });
+    };
+
+    const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!editingRecord) return;
+        const formData = new FormData(e.currentTarget);
+        await updateDC.mutateAsync({
+            id: editingRecord.id,
+            personName: formData.get("personName") as string,
+            amount: Number(formData.get("amount")),
+            fee: Number(formData.get("fee")) || 0,
+            paymentMode: formData.get("paymentMode") as any,
+            dueDate: editDueDate?.toISOString(),
+            notes: formData.get("notes") as string || "",
         });
     };
 
@@ -222,6 +251,87 @@ export default function DebtCreditPage() {
                             </form>
                         </DialogContent>
                     </Dialog>
+
+                    <Dialog open={!!editingRecord} onOpenChange={(v) => !v && setEditingRecord(null)}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Edit {activeTab} record</DialogTitle>
+                                <DialogDescription className="text-xs">
+                                    Update details for this {activeTab} record.
+                                </DialogDescription>
+                            </DialogHeader>
+                            {editingRecord && (
+                                <form onSubmit={handleUpdate} className="space-y-4 pt-2">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-dc-person">Person</Label>
+                                        <Input id="edit-dc-person" name="personName" defaultValue={editingRecord.personName} placeholder="e.g. John Doe" required />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit-dc-amount">Amount ({getCurrencySymbol(currency)})</Label>
+                                            <Input id="edit-dc-amount" name="amount" type="number" step="0.01" defaultValue={editingRecord.amount} placeholder="0.00" required />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit-dc-fee">Fee ({getCurrencySymbol(currency)})</Label>
+                                            <Input id="edit-dc-fee" name="fee" type="number" step="0.01" defaultValue={editingRecord.fee} placeholder="0.00" />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label>Payment Mode</Label>
+                                            <Select name="paymentMode" defaultValue={editingRecord.paymentMode || "momo"}>
+                                                <SelectTrigger className="w-full text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="momo">MoMo</SelectItem>
+                                                    <SelectItem value="bank">Bank</SelectItem>
+                                                    <SelectItem value="hand">Hand</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label>Due Date</Label>
+                                            <Popover>
+                                                <PopoverTrigger
+                                                    render={
+                                                        <Button
+                                                            variant="outline"
+                                                            className={cn(
+                                                                "w-full justify-start text-left font-normal text-xs",
+                                                                !editDueDate && "text-muted-foreground"
+                                                            )}
+                                                        >
+                                                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                                            {editDueDate ? format(editDueDate, "PPP") : "Pick a date"}
+                                                        </Button>
+                                                    }
+                                                />
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={editDueDate}
+                                                        onSelect={setEditDueDate}
+                                                        initialFocus
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="edit-dc-notes">Notes</Label>
+                                        <Input id="edit-dc-notes" name="notes" defaultValue={editingRecord.notes || ""} placeholder="Optional context" />
+                                    </div>
+                                    <div className="flex justify-end gap-2 pt-2">
+                                        <Button type="button" variant="outline" size="sm" onClick={() => setEditingRecord(null)}>Cancel</Button>
+                                        <Button type="submit" size="sm" disabled={updateDC.isPending}>
+                                            {updateDC.isPending ? "Updating..." : "Update Record"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            )}
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
 
@@ -267,8 +377,38 @@ export default function DebtCreditPage() {
                     const isPaid = dc.status === "paid";
 
                     return (
-                        <Card key={dc.id} className="group relative">
-                            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                        <Card key={dc.id} className="group relative pt-4">
+                            <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                                {isOverdue && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger
+                                        render={
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                                <MoreVertical className="w-4 h-4" />
+                                            </Button>
+                                        }
+                                    />
+                                    <DropdownMenuContent align="end" className="w-40">
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                setEditingRecord(dc);
+                                                setEditDueDate(dc.dueDate ? new Date(dc.dueDate) : undefined);
+                                            }}
+                                        >
+                                            <Pencil className="mr-2 w-4 h-4" />
+                                            Edit Record
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            variant="destructive"
+                                            onClick={() => deleteDC.mutate({ id: dc.id })}
+                                        >
+                                            <Trash2 className="mr-2 w-4 h-4" />
+                                            Delete Record
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                            <CardHeader className="flex-row items-center space-y-0 pb-2">
                                 <div className="flex items-center gap-2.5">
                                     <div className={cn(
                                         "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
@@ -282,15 +422,6 @@ export default function DebtCreditPage() {
                                             {dc.status?.replace("_", " ")} · via {dc.paymentMode}
                                         </p>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    {isOverdue && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
-                                    <button
-                                        onClick={() => deleteDC.mutate({ id: dc.id })}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all font-sans"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
